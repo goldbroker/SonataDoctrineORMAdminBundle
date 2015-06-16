@@ -12,6 +12,7 @@
 namespace Sonata\DoctrineORMAdminBundle\Datagrid;
 
 use Doctrine\ORM\Query;
+use Doctrine\ORM\Tools\Pagination\Paginator;
 use Sonata\AdminBundle\Datagrid\Pager as BasePager;
 
 /**
@@ -37,9 +38,9 @@ class Pager extends BasePager
             $countQuery->setParameters($this->getParameters());
         }
 
-        $countQuery->select(sprintf('count(DISTINCT %s.%s) as cnt', $countQuery->getRootAlias(), current($this->getCountColumn())));
+        $paginator = new Paginator($countQuery->getQuery());
 
-        return $countQuery->resetDQLPart('orderBy')->getQuery()->getSingleScalarResult();
+        return $paginator->count();
     }
 
     /**
@@ -47,7 +48,18 @@ class Pager extends BasePager
      */
     public function getResults($hydrationMode = Query::HYDRATE_OBJECT)
     {
-        return $this->getQuery()->execute(array(), $hydrationMode);
+        $proxyQuery = $this->getQuery();
+
+        if ($proxyQuery->getSortBy()) {
+            $proxyQuery->addOrderBy($proxyQuery->getSortBy(), $proxyQuery->getSortOrder());
+        }
+
+        $query = $proxyQuery->getQuery();
+        $query->setHydrationMode($hydrationMode);
+
+        $paginator = new Paginator($query, false);
+
+        return $paginator->getIterator();
     }
 
     /**
